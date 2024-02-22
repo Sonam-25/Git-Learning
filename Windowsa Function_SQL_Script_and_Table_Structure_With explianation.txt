@@ -1,0 +1,229 @@
+--analytical function
+--can solve complex queries very easy
+--min and max sal with each records
+
+select * from emp;
+select max(sal) from emp; -- reduced the number of records
+select max(sal) from emp group by deptno; 
+
+--we can solve by sub query but that is tedious
+
+--creating single windows frame, no partitioning
+
+--since using over clause, we r creating windows of record and max is windows function now
+--since no partition, all records into single windows
+
+select e.*,
+max(sal) over() as max_salary
+from emp e;
+
+--for every distinct value it creates one windows and we can get one value for each
+--partition
+
+min and max sal wih each records
+select e.*,
+max(sal) over(partition by deptno) as max_salary
+from emp e;
+
+--theta
+select e.*,dname,
+max(sal) over(partition by dname) as max_salary
+from emp e, dept d
+where e.deptno=d.deptno;
+
+--ansii
+select e.*,dname,
+max(sal) over(partition by dname) as max_salary
+from emp e inner join dept d
+on e.deptno=d.deptno;
+
+Q74:
+select distinct dname,loc,
+count(sal) over(partition by dname) as count_salary,
+round(avg(sal) over(partition by dname) ,2) as Avg_salary
+from emp e right outer join dept d
+on e.deptno=d.deptno;
+
+--some common windows function
+-- row_number()
+
+--since no partition, all records into single windows
+
+select e.*,
+row_number() over() as rn
+from emp e;
+
+--it creates partition
+select e.*,
+row_number() over(partition by deptno) as rn
+from emp e;
+
+
+--Fetch the top 3 employees in each department earning the max salary along with rank
+select e.*,
+row_number() over(partition by deptno order by sal desc) as rn
+from emp e;
+
+select * from
+(select e.*,
+row_number() over(partition by deptno order by sal desc) as rn
+from emp e)x
+where x.rn <=3;
+=============================================================
+--rank() and dense_rank()
+--rank() --if duplicate value it will assign same rank to both the values and then it will take a jump for next number
+select e.*,
+row_number() over(partition by deptno order by sal) as rw,
+rank() over(partition by deptno order by sal) as rnk
+from emp e
+
+select x.* from (
+select e.*,
+row_number() over(partition by deptno order by sal) as rw,
+rank() over(partition by deptno order by sal) as rnk
+from emp e)x
+where x.rnk <=3;
+
+--dense_rank() -- if duplicate value it will assign same rank to both the values and then it will not take a jump for next number
+
+select e.*,
+row_number() over(partition by deptno order by sal) as rw,
+rank() over(partition by deptno order by sal) as rnk,
+dense_rank() over(partition by deptno order by sal) as Drnk
+from emp e
+
+============================================================
+-- lead and lag
+
+-- fetch a query to display if the salary of an employee is higher, lower or equal to the previous employee.
+
+--fetch sal of previous recrd and hv grp record as per deptno
+--since there is no previous record it will give u null value as 1st record in every --partition
+select e.*,
+lag(sal) over(partition by deptno order by sal) as Prev_sal
+from emp e;
+
+--by default it will give you sal of one previous record, if u need to get sal of 2 --previous reocrd, you need to chnage this lag function and since we are giving 0 as --3rd parameter it will give you 0 as initial value
+
+select e.*,
+lag(sal,2,0) over(partition by deptno order by sal) as Prev_sal
+from emp e;
+
+--lead is simlar to this
+select e.*,
+lag(sal) over(partition by deptno order by sal) as Prev_sal,
+lead(sal) over(partition by deptno order by sal) as next_sal
+from emp e;
+
+
+-- fetch a query to display if the salary of an employee is higher, lower or equal to --the previous employee.
+
+select e.*,
+lag(sal) over(partition by deptno order by empno) as prev_empl_sal,
+case 
+when e.sal > lag(sal) over(partition by deptno order by empno) then 'Higher than previous employee'     
+when e.sal < lag(sal) over(partition by deptno order by empno) then 'Lower than previous employee'	 
+when e.sal = lag(sal) over(partition by deptno order by empno) then 'Same than previous employee'      
+end as sal_range
+from emp e;
+
+=============================================
+--ntile(3)
+--Distributes the rows for each window partition into a specified number of ranked groups.
+
+select *,    
+ntile(3) over () as buckets   
+from emp
+
+select *,    
+ntile(3) over (order by sal desc) as buckets    
+from emp
+
+--Write a query to segregate all the emp into 3 different categories, top salried emp, 'Mid salried emp, 'Low salried emp'
+
+select x.ename, x.sal,
+case when x.buckets = 1 then 'top salried emp'    
+        when x.buckets = 2 then 'Mid salried emp'     
+        when x.buckets = 3 then 'Low salried emp' 
+END as Emp_Category
+from (  select *, ntile(3) over (order by sal desc) as buckets   
+from emp ) x;
+===============================================
+
+=========================================================
+--first_value()
+--will return 1st value of the windows frame
+--since no window frame it will show u 1st record in the output
+select *,
+first_value(ename) over() 
+from emp;
+
+select *,
+first_value(ename) over(partition by deptno) 
+from emp;
+
+--nonono
+--Write query to display highest earning emp in each deptno
+select distinct deptno,
+first_value(ename) 
+over(partition by deptno order by sal desc) as HighestEarningEmp
+from emp;
+
+
+select *,
+first_value(ename) 
+over(partition by deptno order by sal desc) as HighestEarningEmp
+from emp;
+
+-=================================================
+--last_value()
+
+--Returns the value of the specified expression with respect to the last row in the window frame
+
+select *,
+first_value(ename) over(partition by deptno order by sal desc) as HighestEarningEmp
+last_value(ename) over(partition by deptno order by sal desc) as lowestEarningEmp
+from emp;
+
+
+--it is not working, when you combine last_value() and order by
+--why becaouse frame is not defined, it uses default frame clouse here
+--by default, SQL uses the window's current row as the last row of the frame. 
+
+--alteranative
+
+select *,
+first_value(ename) over(partition by deptno order by sal  ) as lowestEarningEmp
+from emp;
+
+--OR
+--so we need to use frame clause to define a subset of the current partition
+--to use last record we need to change the frame as unbounded preceding and unbounded following, means all the record following current row
+
+
+select *,
+first_value(ename) over(partition by deptno order by sal desc) as HighestEarningEmp,
+last_value(ename) over(partition by deptno 
+order by sal desc 
+range between unbounded preceding and unbounded following) as lowestEarningEmp
+from emp;
+
+
+-- Alternate way to write SQL query using Window functions
+
+select *,first_value(ename) 
+over w as HighestEarningEmp,
+last_value(ename) 
+over w as HighestEarningEmp
+from emp
+window w as (partition by deptno order by sal desc
+range between unbounded preceding and unbounded following) 
+
+
+
+
+
+
+
+
+
