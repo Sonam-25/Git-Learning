@@ -226,7 +226,7 @@ range between unbounded preceding and unbounded following)
 Rebasing in Git is a way to integrate changes from one 
 branch into another by moving or applying commits. 
 <next line>
-It's often used to maintain a linear project history. Here are some common examples of using git rebase
+It's often used to maintain a linear project history.
 Rebasing a Feature Branch onto Master
 
 
